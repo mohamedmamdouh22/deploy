@@ -2,12 +2,14 @@
 <html>
 <head>
     <title>Upload File</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BmbxuPwQa2lc/FVzBcNJ7UAyJxM6wuqIj61tLrc4wSX0szH/Ev+nYRRuWlolflfl" crossorigin="anonymous">
 </head>
 <body>
-    <h1>Upload File</h1>
-    <form method="POST" action="{{ url_for('upload_image') }}" enctype="multipart/form-data">
-        <input type="file" name="image">
-        <input type="submit" value="Upload">
+    <h1>Upload Gallary Images</h1>
+    <br></br>
+    <form method="POST" action="{{ url_for('upload_images') }}" enctype="multipart/form-data">
+        <input class="form-control" type="file" name="images" multiple>
+        <input class="btn btn-primary mt-3" type="submit" value="Upload">
     </form>
 </body>
 </html>
