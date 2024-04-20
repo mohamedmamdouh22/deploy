@@ -413,7 +413,7 @@ class FinalLayer(nn.Module):
                 else:
                     self.LAI = nn.Parameter(torch.zeros(len(n_branches), n_cams * n_views, 2048))
 
-    def forward(self, x, cam, view):
+    def forward(self, x, cam=0, view=0):
         # if len(x) != len(self.finalblocks):
         #     print("Something is wrong")
         embs = []
@@ -458,7 +458,7 @@ class MBR_model(nn.Module):
         self.finalblock = FinalLayer(class_num=class_num, n_branches=n_branches, n_groups=n_groups, losses=losses, droprate=droprate, linear_num=linear_num, return_f=return_f, circle_softmax=circle_softmax, LAI=LAI, n_cams=n_cams, n_views=n_views, x2g=x2g, x4g=x4g)
         
 
-    def forward(self, x,cam, view):
+    def forward(self, x,cam=0, view=0):
         mix = self.modelup2L3(x)
         output = self.modelL4(mix)
         preds, embs, ffs = self.finalblock(output, cam, view)
