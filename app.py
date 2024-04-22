@@ -4,8 +4,10 @@ import os
 from models.models import MBR_model
 from PIL import Image
 from torchvision import transforms
+import torch.nn.functional as F
 import numpy as np
 import torch
+# from sklearn.metrics.pairwise import cosine_similarity
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 UPLOAD_FOLDER = 'uploads/'
@@ -51,8 +53,10 @@ def handle_upload(subfolder):
         return redirect(request.url)
     
     files = request.files.getlist('images')
-    image_stats = []
-    for file in files:
+    images=[]
+    gf=[]
+    
+    for id,file in enumerate(files):
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
             save_path = os.path.join(app.config['UPLOAD_FOLDER'], subfolder)
@@ -68,9 +72,6 @@ def handle_upload(subfolder):
 
                 # Convert image data to a numpy array
                 img_data = np.array(img)
-                # Compute mean and standard deviation
-                # mean = np.mean(img_data, axis=(0, 1))
-                # std = np.std(img_data, axis=(0, 1))
                 # Define transformations
                 test_transform = transforms.Compose([
                     transforms.Resize((y_length, x_length), antialias=True),
@@ -82,7 +83,26 @@ def handle_upload(subfolder):
                     img_tensor = img_tensor.unsqueeze(0) 
                 with torch.no_grad():  # Turn off gradients to speed up this part
                     prediction = model(img_tensor)
-                print(prediction)
+                # print(len(prediction[2]))
+                ffs=prediction[2]
+                # for item in ffs:
+                end_vec=[]
+                for i in ffs:
+                    end_vec.append(F.normalize(i))
+                # gf.append(torch.cat(end_vec, 1))
+                images.append(
+                    {
+                        f'{id}':torch.cat(end_vec, 1)
+                    }
+                )
+    for i in range(len(images)):
+        print(images[i][f'{i}'])
+                
+                # print(prediction[2][0][0].size)
+                # {
+                #     filename:prediction
+                # }
+
                 # Store stats for each image
                 # image_stats.append({
                 #     'filename': filename,
