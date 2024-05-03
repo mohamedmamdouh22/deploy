@@ -4,6 +4,7 @@ import os
 from models.models import MBR_model
 from PIL import Image
 from torchvision import transforms
+# from results import *
 import torch.nn.functional as F
 import numpy as np
 import torch
@@ -13,20 +14,29 @@ app.secret_key = os.urandom(24)
 UPLOAD_FOLDER = 'uploads/'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # Limit file size to 16MB
-model_path = 'models/best_mAP.pt'
 y_length= 256
 x_length= 256
 n_mean= [0.5, 0.5, 0.5]
 n_std= [0.5, 0.5, 0.5]
+q_images=[]
+g_images=[]
+gallery={}
 model=MBR_model(13164, ["R50", "R50", "BoT", "BoT"], n_groups=0, losses ="LBS", LAI=False)
-model_path = 'models/best_mAP.pt'
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-model_state_dict = torch.load(model_path, map_location=device)
-model.load_state_dict(model_state_dict)  # Load it properly into the model instance
-model.eval()  # Set the model to evaluation mode
+# model_path = 'models/best_mAP.pt'
+# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+# model_state_dict = torch.load(model_path, map_location=device)
+# model.load_state_dict(model_state_dict)  # Load it properly into the model instance
+# model.eval()  # Set the model to evaluation mode
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif'}
-
+def load_model():
+    global model
+    model_path = 'models/best_mAP.pt'
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model_state_dict = torch.load(model_path, map_location=device)
+    model.load_state_dict(model_state_dict)
+    model.eval()
+    return model
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -53,9 +63,8 @@ def handle_upload(subfolder):
         return redirect(request.url)
     
     files = request.files.getlist('images')
-    images=[]
+    model=load_model()
     gf=[]
-    
     for id,file in enumerate(files):
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
@@ -90,35 +99,68 @@ def handle_upload(subfolder):
                 for i in ffs:
                     end_vec.append(F.normalize(i))
                 # gf.append(torch.cat(end_vec, 1))
-                images.append(
-                    {
-                        f'{id}':torch.cat(end_vec, 1)
-                    }
-                )
-    for i in range(len(images)):
-        print(images[i][f'{i}'])
-                
-                # print(prediction[2][0][0].size)
-                # {
-                #     filename:prediction
-                # }
-
-                # Store stats for each image
-                # image_stats.append({
-                #     'filename': filename,
-                #     'x_length': x_length,
-                #     'y_length': y_length,
-                #     'mean': mean.tolist(),  # Convert numpy array to list for JSON serializable
-                #     'std': std.tolist()
-                # })
+                if subfolder=='gallery':
+                    g_images.append(torch.cat(end_vec, 1))
+                    gallery.update(
+                        {
+                            f'{file_path}':torch.cat(end_vec, 1)
+                        }
+                    )
+                else:
+                    q_images.append(torch.cat(end_vec, 1))
+                    # q_images.append(
+                    #     {
+                    #         f'{id}':torch.cat(end_vec, 1)
+                    #     }
+                    # )
             
 
     # flash(f'Image stats: {image_stats}')
-    return redirect(url_for('success'))
+    if subfolder=='gallery':
+        return redirect(url_for('success_gallery'))
+    else:
+        return redirect(url_for('success_query'))
+@app.route('/success_gallery')
+def success_gallery():
+    return render_template('success_gallery.html')
+@app.route('/success_query')
+def success_query():
+    return render_template('success_query.html')
 
-@app.route('/success')
-def success():
-    return render_template('success.html')
+def find_most_similar(query, gallery, top_k=5):
+    """
+    Find the most similar tensors in the gallery to the query tensor using cosine similarity.
+
+    Parameters:
+    - query (torch.Tensor): A 1xN tensor representing the query image features.
+    - gallery (list of torch.Tensor): A list of 1xN tensors representing the gallery image features.
+    - top_k (int): The number of top similar items to return.
+
+    Returns:
+    - list of int: Indices of the top_k most similar tensors in the gallery.
+    """
+    gallery_tensor = torch.stack(gallery)
+
+    query_normalized = F.normalize(query, p=2, dim=1)
+    gallery_normalized = F.normalize(gallery_tensor, p=2, dim=1)
+    gallery_normalized = gallery_normalized.squeeze(1)  # Reshape to [3, 8192]
+    gallery_normalized_t = gallery_normalized.transpose(0, 1)  # Transpose to [8192, 3]
+
+    similarities = torch.mm(query_normalized, gallery_normalized.transpose(0, 1))
+    _, top_indices = torch.topk(similarities, top_k, largest=True, sorted=True)
+
+    return top_indices[0].tolist()
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    indices = find_most_similar(q_images[0], g_images, top_k=1)
+    image_list = list(gallery.items())
+    path_of_most_similar_image = image_list[indices[0]][0]
+
+    
+    image_url = path_of_most_similar_image.replace("\\", "/")
+    print(image_url)
+    return render_template('predict.html', image_url=path_of_most_similar_image)
 
 if __name__ == '__main__':
     app.run(debug=True)

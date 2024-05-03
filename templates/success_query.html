@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Successful</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BmbxuPwQa2lc/FVzBcNJ7UAyJxM6wuqIj61tLrc4wSX0szH/Ev+nYRRuWlolflfl" crossorigin="anonymous">
+</head>
+<body>
+    <div class="container">
+        <h1 class="mt-5">Upload Successful</h1>
+        <p>Click below to predict the images.</p>
+        <form action="{{ url_for('predict') }}" method="post">
+            <button type="submit" class="btn btn-primary">Predict</button>
+    </div>
+</body>
+</html>
