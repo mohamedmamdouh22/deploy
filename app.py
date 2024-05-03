@@ -9,6 +9,7 @@ import torch.nn.functional as F
 import numpy as np
 import torch
 # from sklearn.metrics.pairwise import cosine_similarity
+
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 UPLOAD_FOLDER = 'uploads/'
@@ -96,8 +97,8 @@ def handle_upload(subfolder):
                 ffs=prediction[2]
                 # for item in ffs:
                 end_vec=[]
-                for i in ffs:
-                    end_vec.append(F.normalize(i))
+                for item in ffs:
+                    end_vec.append(F.normalize(item))
                 # gf.append(torch.cat(end_vec, 1))
                 if subfolder=='gallery':
                     g_images.append(torch.cat(end_vec, 1))
