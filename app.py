@@ -12,8 +12,9 @@ import torch
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
-UPLOAD_FOLDER = 'uploads/'
+UPLOAD_FOLDER = 'static/uploads/'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # Limit file size to 16MB
 y_length= 256
 x_length= 256
@@ -23,11 +24,6 @@ q_images=[]
 g_images=[]
 gallery={}
 model=MBR_model(13164, ["R50", "R50", "BoT", "BoT"], n_groups=0, losses ="LBS", LAI=False)
-# model_path = 'models/best_mAP.pt'
-# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-# model_state_dict = torch.load(model_path, map_location=device)
-# model.load_state_dict(model_state_dict)  # Load it properly into the model instance
-# model.eval()  # Set the model to evaluation mode
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif'}
 def load_model():
@@ -152,15 +148,34 @@ def find_most_similar(query, gallery, top_k=5):
 
     return top_indices[0].tolist()
 
+# @app.route('/predict', methods=['POST'])
+# def predict():
+#     indices = find_most_similar(q_images[0], g_images, top_k=1)
+#     image_list = list(gallery.items())
+#     path_of_most_similar_image = image_list[indices[0]][0]
+
+    
+#     image_url = path_of_most_similar_image.replace("\\", "/")
+#     print(image_url)
+#     return render_template('predict.html', image_url=image_url)
 @app.route('/predict', methods=['POST'])
 def predict():
+    if not q_images:
+        flash('No query images uploaded.')
+        return redirect(url_for('upload_query'))
+    
+    if not g_images:
+        flash('No gallery images uploaded.')
+        return redirect(url_for('upload_gallery'))
+
     indices = find_most_similar(q_images[0], g_images, top_k=1)
     image_list = list(gallery.items())
     path_of_most_similar_image = image_list[indices[0]][0]
+    path_of_most_similar_image=path_of_most_similar_image.replace("\\","/")
+    # Convert file path to URL path
+    print(path_of_most_similar_image)
+    # image_url = url_for('static', filename='uploads/gallery/' + path_of_most_similar_image)
 
-    
-    image_url = path_of_most_similar_image.replace("\\", "/")
-    print(image_url)
     return render_template('predict.html', image_url=path_of_most_similar_image)
 
 if __name__ == '__main__':
