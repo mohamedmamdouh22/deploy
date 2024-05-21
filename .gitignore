@@ -1,2 +1,5 @@
 /models/best_mAP.pt
 /uploads/
+/cars/
+/frames/
+yolov5s.pt
