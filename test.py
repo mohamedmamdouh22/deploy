@@ -10,7 +10,8 @@ model = YOLO("yolov8s.pt")
 def process_video(video_path, top_left, bottom_right):
     results = []
     cap = cv2.VideoCapture(video_path)
-    frame_count = 60  # you can set this to the actual number of frames in the video if needed
+    # frame_count = 60  # you can set this to the actual number of frames in the video if needed
+    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     video_name = os.path.splitext(os.path.basename(video_path))[0]
     car_folder_path = os.path.join('cars', video_name)
     os.makedirs(car_folder_path, exist_ok=True)
@@ -37,9 +38,9 @@ def process_video(video_path, top_left, bottom_right):
             if int(cls) == 2:  # Class 2 is 'car' in COCO dataset
                 car_counter += 1
                 car = frame[int(y1):int(y2), int(x1):int(x2)]
-                car_resized=cv2.resize(car,(256,256))
+                # car_resized=cv2.resize(car,(256,256))
                 car_filename = os.path.join(car_folder_path, f'car_{car_counter:04d}.jpg')
-                cv2.imwrite(car_filename, car_resized)
+                cv2.imwrite(car_filename, car)
                 results.append({"frame": i, "car_number": car_counter, "path": car_filename})
     #     # Display the frame with the mask rectangle
     #     cv2.imshow('Video with Mask', frame)
