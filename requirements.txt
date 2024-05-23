@@ -166,8 +166,10 @@ tk==0.1.0
 tldextract==5.1.1
 tlds==2024020701
 tomlkit==0.12.3
-torch==2.3.0
-torchaudio==2.2.1+cu121
+streamlit
+torch==2.0.1
+torchaudio==2.0.1
+ultralytics
 torchvision==0.18.0
 tornado==6.4
 tqdm==4.66.2
