@@ -8,7 +8,7 @@ import time
 # Load the YOLOv8 model
 model = YOLO("yolov8s.pt")
 
-def process_video(video_path, top_left, bottom_right, skip_frames=2):
+def process_video(video_path, top_left, bottom_right, skip_frames=2, min_width=50, min_height=80):
 
     results = []
     cap = cv2.VideoCapture(video_path)
@@ -27,21 +27,25 @@ def process_video(video_path, top_left, bottom_right, skip_frames=2):
         if i % skip_frames != 0:
             continue
 
-        x1, y1 = top_left
-        x2, y2 = bottom_right
+        x1_roi, y1_roi = top_left
+        x2_roi, y2_roi = bottom_right
         mask = np.zeros_like(frame)
-        mask[y1:y2, x1:x2] = frame[y1:y2, x1:x2]
+        mask[y1_roi:y2_roi, x1_roi:x2_roi] = frame[y1_roi:y2_roi, x1_roi:x2_roi]
         
         detections = model(mask)
         for detection in detections[0].boxes.data:
             x1, y1, x2, y2, confidence, cls = detection[:6]
             if int(cls) == 2:
-                car_counter += 1
-                car = frame[int(y1):int(y2), int(x1):int(x2)]
-                car_filename = os.path.join(gallery_folder_path, f'car_{car_counter:04d}.jpg')
-                cv2.imwrite(car_filename, car)
-                results.append({"frame": i, "car_number": car_counter, "path": car_filename})
-    
+                width = x2 - x1
+                height = y2 - y1
+                # Check if the car is fully within the ROI
+                if width >= min_width and height >= min_height:
+                    car_counter += 1
+                    car = frame[int(y1):int(y2), int(x1):int(x2)]
+                    car_filename = os.path.join(gallery_folder_path, f'car_{car_counter:04d}.jpg')
+                    cv2.imwrite(car_filename, car)
+                    results.append({"frame": i, "car_number": car_counter, "path": car_filename})
+        
     cap.release()
     return results
 
@@ -51,7 +55,7 @@ bottom_right = (1205, 600)  # Replace with your bottom-right coordinates
 
 # Example usage
 start_time = time.time()
-process_video('127769236-c6c65f7f-1450-4d14-b150-42b0e5077dc9.mp4', top_left, bottom_right, 2)
+process_video('sample_video.mp4', top_left, bottom_right, skip_frames=2, min_width=60,min_height=90)
 end_time = time.time()
 
 detection_time = end_time - start_time
