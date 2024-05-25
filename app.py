@@ -1,71 +1,234 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory
+from flask import (
+    Flask,
+    render_template,
+    request,
+    redirect,
+    url_for,
+    flash,
+    send_from_directory,
+)
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from test import process_video
 from werkzeug.utils import secure_filename
 import os
 from models.models import MBR_model
 from PIL import Image
 from torchvision import transforms
-# from results import *
 import torch.nn.functional as F
 import numpy as np
 import torch
+from similarity_check import find_most_similar
 # from sklearn.metrics.pairwise import cosine_similarity
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
-UPLOAD_FOLDER = 'static/uploads/'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+UPLOAD_FOLDER = "static/uploads/"
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # Limit file size to 16MB
-y_length= 256
-x_length= 256
-n_mean= [0.5, 0.5, 0.5]
-n_std= [0.5, 0.5, 0.5]
-q_images=[]
-g_images=[]
-gallery={}
-model=MBR_model(13164, ["R50", "R50", "BoT", "BoT"], n_groups=0, losses ="LBS", LAI=False)
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # Limit file size to 16MB
+y_length = 256
+x_length = 256
+n_mean = [0.5, 0.5, 0.5]
+n_std = [0.5, 0.5, 0.5]
+q_images = []
+g_images = []
+gallery = {}
+processing_status = {'status': 'idle'}
+model = MBR_model(
+    13164, ["R50", "R50", "BoT", "BoT"], n_groups=0, losses="LBS", LAI=False
+)
+
+
 def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif'}
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in {
+        "png",
+        "jpg",
+        "jpeg",
+        "gif",
+        "mp4",
+        "avi",
+    }
+
+
 def load_model():
     global model
-    model_path = 'models/best_mAP.pt'
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model_path = "models/best_mAP.pt"
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model_state_dict = torch.load(model_path, map_location=device)
     model.load_state_dict(model_state_dict)
     model.eval()
     return model
+
 @app.route('/')
+def splash():
+    return render_template('splash.html')
+@app.route("/index")
 def index():
-    return render_template('index.html')
+    return render_template("index.html")
 
-@app.route('/upload_gallery')
+
+@app.route("/selection")
+def selection():
+    return render_template("selection.html")
+
+
+@app.route("/process_selection", methods=["POST"])
+def process_selection():
+    processing_type = request.form.get("processing_type")
+    if processing_type == "image_to_image":
+        return redirect(url_for("upload_gallery"))
+    elif processing_type == "video_to_image":
+        return redirect(url_for("upload_video"))
+    else:
+        flash("Invalid selection")
+        return redirect(url_for("selection"))
+
+
+@app.route("/upload_gallery")
 def upload_gallery():
-    return render_template('upload.html')
+    return render_template("upload.html")
 
-@app.route('/upload_query')
+
+@app.route("/upload_query")
 def upload_query():
-    return render_template('upload_query.html')
+    return render_template("upload_query.html")
+
+
+@app.route("/upload_video")
+def upload_video():
+    return render_template("upload_video.html")
+
 
 @app.route('/upload_gallery_images', methods=['POST'])
 def upload_gallery_images():
-    return handle_upload('gallery')
+    global processing_status
 
-@app.route('/upload_query_images', methods=['POST'])
-def upload_query_images():
-    return handle_upload('query')
-
-def handle_upload(subfolder):
     if 'images' not in request.files:
         flash('No file part')
         return redirect(request.url)
     
     files = request.files.getlist('images')
-    model=load_model()
-    gf=[]
-    for id,file in enumerate(files):
+    if files and all(allowed_file(file.filename) for file in files):
+        processing_status['status'] = 'processing'
+        
+        # Save files
+        filenames = []
+        for file in files:
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], 'gallery', filename)
+            if not os.path.exists(os.path.dirname(file_path)):
+                os.makedirs(os.path.dirname(file_path))
+            file.save(file_path)
+            filenames.append(file_path)
+        
+        # Process images in a separate thread
+        threading.Thread(target=process_gallery_images, args=(filenames,)).start()
+
+        return redirect(url_for('processing'))
+
+    flash('Invalid file type')
+    return redirect(request.url)
+def process_gallery_images(image_paths):
+    global processing_status
+    handle_uploaded_car_images(image_paths)
+    processing_status['status'] = 'done'
+
+@app.route("/upload_query_images", methods=["POST"])
+def upload_query_images():
+    return handle_upload("query")
+
+
+@app.route('/upload_video_file', methods=['POST'])
+def upload_video_file():
+    global processing_status
+
+    if 'video' not in request.files:
+        flash('No video file part')
+        return redirect(request.url)
+    
+    file = request.files['video']
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        video_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(video_path)
+
+        top_left = (75, 200)  
+        bottom_right = (1205, 600) 
+
+        # Set processing status to 'processing'
+        processing_status['status'] = 'processing'
+
+        # Process the video in a separate thread
+        threading.Thread(target=process_video_and_handle_images, args=(video_path, top_left, bottom_right)).start()
+
+        return redirect(url_for('processing'))
+
+    flash('Invalid file type')
+    return redirect(request.url)
+def process_video_and_handle_images(video_path, top_left, bottom_right):
+    global processing_status
+
+    results = process_video(video_path, top_left, bottom_right)
+    car_image_paths = [result['path'] for result in results]
+    handle_uploaded_car_images(car_image_paths)
+
+    # Set processing status to 'done'
+    processing_status['status'] = 'done'
+
+def process_image(file_path, model):
+    print(file_path)
+    if allowed_file(file_path):
+        with Image.open(file_path) as img:
+            img = img.convert("RGB")
+            test_transform = transforms.Compose(
+                [
+                    transforms.Resize((y_length, x_length), antialias=True),
+                    transforms.ToTensor(),
+                    transforms.Normalize(n_mean, n_std),
+                ]
+            )
+            img_tensor = test_transform(img)
+            if len(img_tensor.shape) == 3:
+                img_tensor = img_tensor.unsqueeze(0)
+            with torch.no_grad():
+                prediction = model(img_tensor)
+
+            ffs = prediction[2]
+            end_vec = [F.normalize(item) for item in ffs]
+
+            g_images.append(torch.cat(end_vec, 1))
+            gallery.update({f"{file_path}": torch.cat(end_vec, 1)})
+@app.route('/processing')
+def processing():
+    return render_template('processing.html')
+
+@app.route('/check_processing_status')
+def check_processing_status():
+    return processing_status
+
+def handle_uploaded_car_images(image_paths):
+    model = load_model()
+    model.eval()  
+    
+    # Use ThreadPoolExecutor to handle threading
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        futures = [executor.submit(process_image, file_path, model) for file_path in image_paths]
+        for future in futures:
+            future.result()
+
+def handle_upload(subfolder):
+    if "images" not in request.files:
+        flash("No file part")
+        return redirect(request.url)
+
+    files = request.files.getlist("images")
+    model = load_model()
+    # gf = []
+    for id, file in enumerate(files):
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
-            save_path = os.path.join(app.config['UPLOAD_FOLDER'], subfolder)
+            save_path = os.path.join(app.config["UPLOAD_FOLDER"], subfolder)
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
             file_path = os.path.join(save_path, filename)
@@ -73,36 +236,31 @@ def handle_upload(subfolder):
 
             # Open the image file
             with Image.open(file_path) as img:
-                img = img.convert('RGB')  # Convert image to RGB
-                # x_length, y_length = img.size
+                img = img.convert("RGB")  # Convert image to RGB
 
-                # Convert image data to a numpy array
-                img_data = np.array(img)
                 # Define transformations
-                test_transform = transforms.Compose([
-                    transforms.Resize((y_length, x_length), antialias=True),
-                    transforms.ToTensor(),  # Convert image to tensor
-                    transforms.Normalize(n_mean, n_std)
-                ])   
+                test_transform = transforms.Compose(
+                    [
+                        transforms.Resize((y_length, x_length), antialias=True),
+                        transforms.ToTensor(),  # Convert image to tensor
+                        transforms.Normalize(n_mean, n_std),
+                    ]
+                )
                 img_tensor = test_transform(img)
                 if len(img_tensor.shape) == 3:  # If the tensor is C x H x W
-                    img_tensor = img_tensor.unsqueeze(0) 
+                    img_tensor = img_tensor.unsqueeze(0)
                 with torch.no_grad():  # Turn off gradients to speed up this part
                     prediction = model(img_tensor)
                 # print(len(prediction[2]))
-                ffs=prediction[2]
+                ffs = prediction[2]
                 # for item in ffs:
-                end_vec=[]
+                end_vec = []
                 for item in ffs:
                     end_vec.append(F.normalize(item))
                 # gf.append(torch.cat(end_vec, 1))
-                if subfolder=='gallery':
+                if subfolder == "gallery":
                     g_images.append(torch.cat(end_vec, 1))
-                    gallery.update(
-                        {
-                            f'{file_path}':torch.cat(end_vec, 1)
-                        }
-                    )
+                    gallery.update({f"{file_path}": torch.cat(end_vec, 1)})
                 else:
                     q_images.append(torch.cat(end_vec, 1))
                     # q_images.append(
@@ -110,73 +268,41 @@ def handle_upload(subfolder):
                     #         f'{id}':torch.cat(end_vec, 1)
                     #     }
                     # )
-            
 
     # flash(f'Image stats: {image_stats}')
-    if subfolder=='gallery':
-        return redirect(url_for('success_gallery'))
+    if subfolder == "gallery":
+        return redirect(url_for("success_gallery"))
     else:
-        return redirect(url_for('success_query'))
-@app.route('/success_gallery')
+        return redirect(url_for("success_query"))
+
+
+@app.route("/success_gallery")
 def success_gallery():
-    return render_template('success_gallery.html')
-@app.route('/success_query')
+    return render_template("success_gallery.html")
+
+
+@app.route("/success_query")
 def success_query():
-    return render_template('success_query.html')
+    return render_template("success_query.html")
 
-def find_most_similar(query, gallery, top_k=5):
-    """
-    Find the most similar tensors in the gallery to the query tensor using cosine similarity.
-
-    Parameters:
-    - query (torch.Tensor): A 1xN tensor representing the query image features.
-    - gallery (list of torch.Tensor): A list of 1xN tensors representing the gallery image features.
-    - top_k (int): The number of top similar items to return.
-
-    Returns:
-    - list of int: Indices of the top_k most similar tensors in the gallery.
-    """
-    gallery_tensor = torch.stack(gallery)
-
-    query_normalized = F.normalize(query, p=2, dim=1)
-    gallery_normalized = F.normalize(gallery_tensor, p=2, dim=1)
-    gallery_normalized = gallery_normalized.squeeze(1)  # Reshape to [3, 8192]
-    gallery_normalized_t = gallery_normalized.transpose(0, 1)  # Transpose to [8192, 3]
-
-    similarities = torch.mm(query_normalized, gallery_normalized.transpose(0, 1))
-    _, top_indices = torch.topk(similarities, top_k, largest=True, sorted=True)
-
-    return top_indices[0].tolist()
-
-# @app.route('/predict', methods=['POST'])
-# def predict():
-#     indices = find_most_similar(q_images[0], g_images, top_k=1)
-#     image_list = list(gallery.items())
-#     path_of_most_similar_image = image_list[indices[0]][0]
-
-    
-#     image_url = path_of_most_similar_image.replace("\\", "/")
-#     print(image_url)
-#     return render_template('predict.html', image_url=image_url)
-@app.route('/predict', methods=['POST'])
+@app.route("/predict", methods=["POST"])
 def predict():
     if not q_images:
-        flash('No query images uploaded.')
-        return redirect(url_for('upload_query'))
-    
+        flash("No query images uploaded.")
+        return redirect(url_for("upload_query"))
+
     if not g_images:
-        flash('No gallery images uploaded.')
-        return redirect(url_for('upload_gallery'))
+        flash("No gallery images uploaded.")
+        return redirect(url_for("upload_gallery"))
 
-    indices = find_most_similar(q_images[0], g_images, top_k=1)
+    indices, scores = find_most_similar(q_images[0], g_images, top_k=1)
     image_list = list(gallery.items())
-    path_of_most_similar_image = image_list[indices[0]][0]
-    path_of_most_similar_image=path_of_most_similar_image.replace("\\","/")
-    # Convert file path to URL path
-    print(path_of_most_similar_image)
-    # image_url = url_for('static', filename='uploads/gallery/' + path_of_most_similar_image)
+    path_of_most_similar_image = image_list[indices[0][0]][0]
+    similarity_score = scores[0] * 100  # Convert to percentage
+    
+    path_of_most_similar_image = path_of_most_similar_image.replace("\\", "/")
+    return render_template("predict.html", image_url=path_of_most_similar_image, similarity_score=similarity_score)
 
-    return render_template('predict.html', image_url=path_of_most_similar_image)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)
