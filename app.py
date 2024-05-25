@@ -7,16 +7,17 @@ from flask import (
     flash,
     send_from_directory,
 )
+import time
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from test import process_video
 from werkzeug.utils import secure_filename
 import os
+import shutil
 from models.models import MBR_model
 from PIL import Image
 from torchvision import transforms
 import torch.nn.functional as F
-import numpy as np
 import torch
 from similarity_check import find_most_similar
 # from sklearn.metrics.pairwise import cosine_similarity
@@ -50,6 +51,17 @@ def allowed_file(filename):
         "avi",
     }
 
+def clear_query_directory():
+    query_folder = os.path.join(app.config['UPLOAD_FOLDER'], 'query')
+    for filename in os.listdir(query_folder):
+        file_path = os.path.join(query_folder, filename)
+        try:
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.unlink(file_path)
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)
+        except Exception as e:
+            print(f'Failed to delete {file_path}. Reason: {e}')
 
 def load_model():
     global model
@@ -65,6 +77,7 @@ def splash():
     return render_template('splash.html')
 @app.route("/index")
 def index():
+
     return render_template("index.html")
 
 
@@ -171,8 +184,11 @@ def process_video_and_handle_images(video_path, top_left, bottom_right):
 
     results = process_video(video_path, top_left, bottom_right)
     car_image_paths = [result['path'] for result in results]
+    start_time = time.time()
     handle_uploaded_car_images(car_image_paths)
-
+    end_time = time.time()
+    model_time=end_time-start_time
+    print(f"model time is: {model_time} s")
     # Set processing status to 'done'
     processing_status['status'] = 'done'
 
@@ -212,7 +228,7 @@ def handle_uploaded_car_images(image_paths):
     model.eval()  
     
     # Use ThreadPoolExecutor to handle threading
-    with ThreadPoolExecutor(max_workers=20) as executor:
+    with ThreadPoolExecutor(max_workers=50) as executor:
         futures = [executor.submit(process_image, file_path, model) for file_path in image_paths]
         for future in futures:
             future.result()
@@ -263,13 +279,6 @@ def handle_upload(subfolder):
                     gallery.update({f"{file_path}": torch.cat(end_vec, 1)})
                 else:
                     q_images.append(torch.cat(end_vec, 1))
-                    # q_images.append(
-                    #     {
-                    #         f'{id}':torch.cat(end_vec, 1)
-                    #     }
-                    # )
-
-    # flash(f'Image stats: {image_stats}')
     if subfolder == "gallery":
         return redirect(url_for("success_gallery"))
     else:
@@ -287,6 +296,7 @@ def success_query():
 
 @app.route("/predict", methods=["POST"])
 def predict():
+    global q_images
     if not q_images:
         flash("No query images uploaded.")
         return redirect(url_for("upload_query"))
@@ -299,8 +309,10 @@ def predict():
     image_list = list(gallery.items())
     path_of_most_similar_image = image_list[indices[0][0]][0]
     similarity_score = scores[0] * 100  # Convert to percentage
-    
     path_of_most_similar_image = path_of_most_similar_image.replace("\\", "/")
+    # Clear the query directory and reset q_images
+    clear_query_directory()
+    q_images = []
     return render_template("predict.html", image_url=path_of_most_similar_image, similarity_score=similarity_score)
 
 
