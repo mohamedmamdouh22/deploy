@@ -1,18 +1,24 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Prediction Result</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BmbxuPwQa2lc/FVzBcNJ7UAyJxM6wuqIj61tLrc4wSX0szH/Ev+nYRRuWlolflfl" crossorigin="anonymous">
 </head>
 <body>
-    <h1>Prediction Result</h1>
-    {% if image_url %}
-        <div>
-            <h2>Most Similar Image:</h2>
-            <img src="{{ image_url }}" alt="Similar Image" style="width: auto; height: 400px;">
+    <div class="container mt-5 text-center">
+        <h1>Prediction Result</h1>
+        <div class="card" style="width: 18rem; margin: auto;">
+            <img src="{{ url_for('static', filename=image_url.split('static/')[1]) }}" class="card-img-top" alt="Most Similar Image">
+            <div class="card-body">
+                <h5 class="card-title">Most Similar Image</h5>
+                <!-- <p class="card-text">Similarity: {{ "%.2f" % similarity_score }}%</p> -->
+            </div>
         </div>
-    {% else %}
-        <p>No image to display.</p>
-    {% endif %}
-    <a href="{{ url_for('index') }}">Back to Home</a>
+        <a href="/upload_query" class="btn btn-primary mt-4">Query Another Image</a>
+        <a href="/index" class="btn btn-secondary mt-4">Go Back</a>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta2/dist/js/bootstrap.bundle.min.js" integrity="sha384-pzjw8f+ua7Kw1TIqPIJw7VuNQ6E3B84l4G3go9a84z6nPpqOpXmk0DJwPRXj9j7B" crossorigin="anonymous"></script>
 </body>
 </html>
