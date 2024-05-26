@@ -13,11 +13,12 @@ def process_video(video_path, top_left, bottom_right, skip_frames=2, min_width=5
     results = []
     cap = cv2.VideoCapture(video_path)
     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    fps = cap.get(cv2.CAP_PROP_FPS)  # Get frames per second
     video_name = os.path.splitext(os.path.basename(video_path))[0]
     gallery_folder_path = os.path.join('static/uploads/gallery', video_name)
     os.makedirs(gallery_folder_path, exist_ok=True)
     
-    car_counter = 0
+    # car_counter = 0
     for i in range(frame_count):
         ret, frame = cap.read()
         if not ret:
@@ -40,11 +41,12 @@ def process_video(video_path, top_left, bottom_right, skip_frames=2, min_width=5
                 height = y2 - y1
                 # Check if the car is fully within the ROI
                 if width >= min_width and height >= min_height:
-                    car_counter += 1
+                    # car_counter += 1
                     car = frame[int(y1):int(y2), int(x1):int(x2)]
-                    car_filename = os.path.join(gallery_folder_path, f'car_{car_counter:04d}.jpg')
+                    timestamp = i / fps  # Calculate the timestamp
+                    car_filename = os.path.join(gallery_folder_path, f'{timestamp:.2f}.jpg')
                     cv2.imwrite(car_filename, car)
-                    results.append({"frame": i, "car_number": car_counter, "path": car_filename})
+                    results.append({"frame": i, "path": car_filename, "timestamp": timestamp})
         
     cap.release()
     return results
