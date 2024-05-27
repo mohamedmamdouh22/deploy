@@ -315,6 +315,5 @@ def predict():
     q_images = []
     return render_template("predict.html", image_url=path_of_most_similar_image, similarity_score=similarity_score)
 
-
 if __name__ == "__main__":
     app.run(debug=True)
