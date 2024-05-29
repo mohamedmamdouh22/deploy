@@ -129,7 +129,7 @@ def cars_embeddings(model, images, batch_size=32):
             end_vec = [F.normalize(item[iter], dim=0) for item in ffs_batch]
             concatenated_vec = torch.cat(end_vec, 0)
             feature_vector_imgs.append(concatenated_vec)
-            db.update({f"image_{i+iter}": concatenated_vec})
+            db.update({f"static/uploads/gallery/car_{i+iter}.jpg": concatenated_vec})
     
     return feature_vector_imgs, db
             
