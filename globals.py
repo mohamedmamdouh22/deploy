@@ -10,3 +10,7 @@ data_transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize(n_mean_std, n_mean_std),
 ])
+
+# video settings
+top_left = (75, 200)  
+bottom_right = (1205, 600) 

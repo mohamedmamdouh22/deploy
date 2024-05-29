@@ -15,8 +15,9 @@ import torch.nn.functional as F
 import torch
 from helper import *
 from utils import load_models, video_embeddings, find_most_similar
+from globals import processing_status, data_transform, top_left, bottom_right
 # from sklearn.metrics.pairwise import cosine_similarity
-from globals import processing_status, data_transform
+
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 UPLOAD_FOLDER = "static/uploads/"
@@ -29,19 +30,18 @@ gallery = {}
 
 model,yolo = load_models()
 device = next(model.parameters()).device
+
 @app.route('/')
 def splash():
     return render_template('splash.html')
+
 @app.route("/index")
 def index():
-
     return render_template("index.html")
-
 
 @app.route("/selection")
 def selection():
     return render_template("selection.html")
-
 
 @app.route("/process_selection", methods=["POST"])
 def process_selection():
@@ -54,21 +54,17 @@ def process_selection():
         flash("Invalid selection")
         return redirect(url_for("selection"))
 
-
 @app.route("/upload_gallery")
 def upload_gallery():
     return render_template("upload.html")
-
 
 @app.route("/upload_query")
 def upload_query():
     return render_template("upload_query.html")
 
-
 @app.route("/upload_video")
 def upload_video():
     return render_template("upload_video.html")
-
 
 @app.route('/upload_gallery_images', methods=['POST'])
 def upload_gallery_images():
@@ -98,6 +94,7 @@ def upload_gallery_images():
 
     flash('Invalid file type')
     return redirect(request.url)
+    
 def process_gallery_images(image_paths):
     handle_uploaded_car_images(model, image_paths, g_images, gallery)
     processing_status['status'] = 'done'
@@ -105,7 +102,6 @@ def process_gallery_images(image_paths):
 @app.route("/upload_query_images", methods=["POST"])
 def upload_query_images():
     return handle_upload("query")
-
 
 @app.route('/upload_video_file', methods=['POST'])
 def upload_video_file():
@@ -120,9 +116,6 @@ def upload_video_file():
         video_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(video_path)
 
-        top_left = (75, 200)  
-        bottom_right = (1205, 600) 
-
         # Set processing status to 'processing'
         processing_status['status'] = 'processing'
 
@@ -133,12 +126,12 @@ def upload_video_file():
 
     flash('Invalid file type')
     return redirect(request.url)
+
 def process_video_and_handle_images(video_path, top_left, bottom_right):
-    embeddings = video_embeddings(video_path, model, yolo, top_left, bottom_right)
+    embeddings = video_embeddings(video_path, model, yolo, top_left, bottom_right, skip_frames=3)
     g_images.extend(embeddings[0])
     gallery.update(embeddings[1])
     processing_status['status'] = 'done'
-
 
 @app.route('/processing')
 def processing():
@@ -147,7 +140,6 @@ def processing():
 @app.route('/check_processing_status')
 def check_processing_status():
     return processing_status
-
 
 def handle_upload(subfolder):
     if "images" not in request.files:
