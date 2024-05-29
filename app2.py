@@ -14,9 +14,8 @@ from PIL import Image
 from torchvision import transforms
 import torch.nn.functional as F
 import torch
-from similarity_check import find_most_similar
 from helper import *
-from utils import load_models,video_embeddings
+from utils import load_models, video_embeddings, find_most_similar
 # from sklearn.metrics.pairwise import cosine_similarity
 from globals import x_length,y_length,processing_status,n_mean,n_std
 app = Flask(__name__)
