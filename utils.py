@@ -129,7 +129,7 @@ def cars_embeddings(model, images, batch_size=32):
             end_vec = [F.normalize(item[iter], dim=0) for item in ffs_batch]
             concatenated_vec = torch.cat(end_vec, 0)
             feature_vector_imgs.append(concatenated_vec)
-            db.update({f"static/uploads/gallery/car_{i+iter}.jpg": concatenated_vec})
+            db.update({f"image_{i+iter}": concatenated_vec})
     
     return feature_vector_imgs, db
             
@@ -141,10 +141,10 @@ def video_embeddings(video_path, model, yolo, top_left, bottom_right, skip_frame
     cars = detect_objects(yolo, frames, top_left, bottom_right, min_width, min_height)
 
     # extract cars embeddings
-    embeddings,db = cars_embeddings(model, cars, batch_size)
+    embeddings = cars_embeddings(model, cars, batch_size)
     processing_status['status'] = 'done'
 
-    return embeddings,db
+    return embeddings
 # if __name__=='__main__':
 #     top_left = (75, 200)  # Replace with your top-left coordinates
 #     bottom_right = (1205, 600)  # Replace with your bottom-right coordinates

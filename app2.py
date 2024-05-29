@@ -136,9 +136,8 @@ def upload_video_file():
     flash('Invalid file type')
     return redirect(request.url)
 def process_video_and_handle_images(video_path, top_left, bottom_right):
-    embeddings,db = video_embeddings(video_path, model, yolo, top_left, bottom_right)
-    gallery.update(db)
-    g_images.extend(embeddings)
+    embeddings = video_embeddings(video_path, model, yolo, top_left, bottom_right)
+    g_images.extend(embeddings[1])
     processing_status['status'] = 'done'
 
 
