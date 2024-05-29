@@ -30,6 +30,13 @@ def load_models():
     model.eval()
     return model, yolo
 
+def time_stamp():
+    # fps = cap.get(cv2.CAP_PROP_FPS)  # Get frames per second
+    # video_name = os.path.splitext(os.path.basename(video_path))[0]
+    # gallery_folder_path = os.path.join('static/uploads/gallery', video_name)
+    # os.makedirs(gallery_folder_path, exist_ok=True)
+    pass
+
 def extract_frames(video_path, skip_frames=2):
     cap = cv2.VideoCapture(video_path)
     frames = []
@@ -43,7 +50,6 @@ def extract_frames(video_path, skip_frames=2):
         frame_count += 1
     cap.release()
     return frames
-
 
 def detect_objects(model, frames, top_left, bottom_right, min_width=50, min_height=80):
     results = []
@@ -143,3 +149,35 @@ def video_embeddings(video_path, model, yolo, top_left, bottom_right, skip_frame
     embeddings = cars_embeddings(model, cars, batch_size)
 
     return embeddings
+
+def find_most_similar(query, gallery, top_k=5):
+    """
+    Find the most similar tensors in the gallery to the query tensor using cosine similarity.
+
+    Parameters:
+    - query (torch.Tensor): A 1xN tensor representing the query image features.
+    - gallery (list of torch.Tensor): A list of 1xN tensors representing the gallery image features.
+    - top_k (int): The number of top similar items to return.
+
+    Returns:
+    - list of int: Indices of the top_k most similar tensors in the gallery.
+    """
+    # Convert the list of tensors to a single tensor
+    gallery_tensor = torch.stack(gallery)
+
+    # Normalize the query and gallery tensors to unit form
+    query_normalized = F.normalize(query, p=2, dim=1)
+    gallery_normalized = F.normalize(gallery_tensor, p=2, dim=1).squeeze(1)
+    
+    # Compute cosine similarity
+    similarities = torch.mm(query_normalized, gallery_normalized.transpose(0, 1))
+    
+    # Get the top_k similar indices
+    top_scores, top_indices = torch.topk(similarities, top_k, largest=True, sorted=True)
+    
+    # Ensure scores are between 0 and 1
+    top_scores = [(score.item() + 1) / 2 for score in top_scores]
+    
+    return top_indices, top_scores
+
+
