@@ -85,7 +85,7 @@ def detect_objects(model, frames, top_left, bottom_right, min_width=50, min_heig
 
 def preprocess_images(batch, data_transform):
     img_tensors = []
-    for img in batch:
+    for idx,img in enumerate(batch):
         # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # Ensure the image is in RGB format
         img_pil = Image.fromarray(img)  # Convert NumPy array to PIL Image
         img_tensor = data_transform(img_pil)
@@ -97,7 +97,10 @@ def cars_embeddings(model, images, batch_size=32):
     feature_vector_imgs = []
     db = {}
     num_images = len(images)
-
+    for i in range(num_images):
+        car_pil = Image.fromarray(cv2.cvtColor(images[i], cv2.COLOR_BGR2RGB))
+        car_path = os.path.join('static/uploads/gallery', f'car_{i}.jpg')
+        car_pil.save(car_path)
     # Transform to be applied to each image
     resize_dims = (256, 256)
     n_mean_std = [0.5, 0.5, 0.5]
@@ -129,7 +132,7 @@ def cars_embeddings(model, images, batch_size=32):
             end_vec = [F.normalize(item[iter], dim=0) for item in ffs_batch]
             concatenated_vec = torch.cat(end_vec, 0)
             feature_vector_imgs.append(concatenated_vec)
-            db.update({f"image_{i+iter}": concatenated_vec})
+            db.update({f"static/uploads/gallery/car_{i+iter}.jpg": concatenated_vec})
     
     return feature_vector_imgs, db
             
