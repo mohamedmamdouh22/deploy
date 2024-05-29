@@ -16,8 +16,9 @@ import torch.nn.functional as F
 import torch
 from similarity_check import find_most_similar
 from helper import *
+from utils import load_models,video_embeddings
 # from sklearn.metrics.pairwise import cosine_similarity
-
+from globals import x_length,y_length,processing_status,n_mean,n_std
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 UPLOAD_FOLDER = "static/uploads/"
@@ -28,8 +29,8 @@ q_images = []
 g_images = []
 gallery = {}
 
-
-
+model,yolo=load_models()
+device = next(model.parameters()).device
 @app.route('/')
 def splash():
     return render_template('splash.html')
@@ -73,7 +74,6 @@ def upload_video():
 
 @app.route('/upload_gallery_images', methods=['POST'])
 def upload_gallery_images():
-    global processing_status
 
     if 'images' not in request.files:
         flash('No file part')
@@ -101,7 +101,6 @@ def upload_gallery_images():
     flash('Invalid file type')
     return redirect(request.url)
 def process_gallery_images(image_paths):
-    global processing_status
     handle_uploaded_car_images(image_paths, g_images, gallery)
     processing_status['status'] = 'done'
 
@@ -112,7 +111,6 @@ def upload_query_images():
 
 @app.route('/upload_video_file', methods=['POST'])
 def upload_video_file():
-    global processing_status
 
     if 'video' not in request.files:
         flash('No video file part')
@@ -137,7 +135,10 @@ def upload_video_file():
 
     flash('Invalid file type')
     return redirect(request.url)
-
+def process_video_and_handle_images(video_path, top_left, bottom_right):
+    embeddings = video_embeddings(video_path, model, yolo, top_left, bottom_right)
+    g_images.extend(embeddings)
+    processing_status['status'] = 'done'
 
 
 @app.route('/processing')
@@ -155,7 +156,6 @@ def handle_upload(subfolder):
         return redirect(request.url)
 
     files = request.files.getlist("images")
-    model = load_model()
     # gf = []
     for id, file in enumerate(files):
         if file and allowed_file(file.filename):
@@ -178,9 +178,10 @@ def handle_upload(subfolder):
                         transforms.Normalize(n_mean, n_std),
                     ]
                 )
-                img_tensor = test_transform(img)
+                img_tensor = test_transform(img).unsqueeze(0).to(device)
                 if len(img_tensor.shape) == 3:  # If the tensor is C x H x W
                     img_tensor = img_tensor.unsqueeze(0)
+                
                 with torch.no_grad():  # Turn off gradients to speed up this part
                     prediction = model(img_tensor)
                 # print(len(prediction[2]))
@@ -221,8 +222,10 @@ def predict():
     if not g_images:
         flash("No gallery images uploaded.")
         return redirect(url_for("upload_gallery"))
-
-    indices, scores = find_most_similar(q_images[0], g_images, top_k=1)
+    if len(g_images)==2:
+        indices, scores = find_most_similar(q_images[0], g_images[0], top_k=1)
+    else:
+        indices, scores = find_most_similar(q_images[0], g_images, top_k=1)
     image_list = list(gallery.items())
     path_of_most_similar_image = image_list[indices[0][0]][0]
     similarity_score = scores[0] * 100  # Convert to percentage
