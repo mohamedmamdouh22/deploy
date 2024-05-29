@@ -4,7 +4,6 @@ import torch
 from models.models import MBR_model
 from torchvision import transforms
 from PIL import Image
-from test import process_video
 import torch.nn.functional as F
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -35,20 +34,6 @@ def clear_query_directory(parent_dir):
         except Exception as e:
             print(f'Failed to delete {file_path}. Reason: {e}')
 
-def load_model():
-    model_path = "models/best_mAP.pt"
-    model = MBR_model(
-    13164, ["R50", "R50", "BoT", "BoT"], n_groups=0, losses="LBS", LAI=False
-    )
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model_state_dict = torch.load(model_path, map_location=device)
-    model.load_state_dict(model_state_dict)
-
-    # Move the model to the device
-    model.to(device)
-
-    model.eval()
-    return model
 # ===================================================================================
 # ===================================================================================
 def process_image(file_path, model, g_images: list, gallery: dict):
@@ -76,26 +61,13 @@ def process_image(file_path, model, g_images: list, gallery: dict):
             g_images.append(torch.cat(end_vec, 1))
             gallery.update({f"{file_path}": torch.cat(end_vec, 1)})
 
-def handle_uploaded_car_images(image_paths, g_images, gallery):
-    model = load_model()
-    model.eval()  
+def handle_uploaded_car_images(model, image_paths, g_images, gallery):
+    model.eval() 
     
     # Use ThreadPoolExecutor to handle threading
     with ThreadPoolExecutor(max_workers=50) as executor:
         futures = [executor.submit(process_image, file_path, model, g_images, gallery) for file_path in image_paths]
         for future in futures:
             future.result()
-
-def process_video_and_handle_images(video_path, top_left, bottom_right):
-
-    results = process_video(video_path, top_left, bottom_right)
-    car_image_paths = [result['path'] for result in results]
-    start_time = time.time()
-    handle_uploaded_car_images(car_image_paths)
-    end_time = time.time()
-    model_time=end_time-start_time
-    print(f"model time is: {model_time} s")
-    # Set processing status to 'done'
-    processing_status['status'] = 'done'
 
 

@@ -28,7 +28,7 @@ q_images = []
 g_images = []
 gallery = {}
 
-model,yolo=load_models()
+model,yolo = load_models()
 device = next(model.parameters()).device
 @app.route('/')
 def splash():
@@ -100,7 +100,7 @@ def upload_gallery_images():
     flash('Invalid file type')
     return redirect(request.url)
 def process_gallery_images(image_paths):
-    handle_uploaded_car_images(image_paths, g_images, gallery)
+    handle_uploaded_car_images(model, image_paths, g_images, gallery)
     processing_status['status'] = 'done'
 
 @app.route("/upload_query_images", methods=["POST"])
