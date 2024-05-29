@@ -1,14 +1,13 @@
 import cv2
 import torch
-from torchvision import transforms
 import torch.nn.functional as F
 from ultralytics import YOLO
 from models.models import MBR_model
 import numpy as np
 from PIL import Image
 import os
-import time
-from globals import processing_status
+from globals import processing_status, data_transform
+
 def load_models():
     # set the device to CUDA
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -90,7 +89,7 @@ def detect_objects(model, frames, top_left, bottom_right, min_width=50, min_heig
                     results.append(car)
     return results
 
-def preprocess_images(batch, data_transform):
+def preprocess_images(batch, transform=data_transform):
     img_tensors = []
     for idx,img in enumerate(batch):
         # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # Ensure the image is in RGB format
@@ -108,14 +107,6 @@ def cars_embeddings(model, images, batch_size=32):
         car_pil = Image.fromarray(cv2.cvtColor(images[i], cv2.COLOR_BGR2RGB))
         car_path = os.path.join('static/uploads/gallery', f'car_{i}.jpg')
         car_pil.save(car_path)
-    # Transform to be applied to each image
-    resize_dims = (256, 256)
-    n_mean_std = [0.5, 0.5, 0.5]
-    data_transform = transforms.Compose([
-        transforms.Resize(resize_dims, antialias=True),
-        transforms.ToTensor(),
-        transforms.Normalize(n_mean_std, n_mean_std),
-    ])
 
     # Check the device of the model
     device = next(model.parameters()).device
@@ -125,7 +116,7 @@ def cars_embeddings(model, images, batch_size=32):
         batch = images[i:i+batch_size]
         
         # preprocess the batch 
-        tensors_batch = preprocess_images(batch, data_transform).to(device)
+        tensors_batch = preprocess_images(batch).to(device)
 
         # Perform batched inference
         model.eval()

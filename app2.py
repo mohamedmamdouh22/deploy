@@ -11,13 +11,12 @@ import threading
 from werkzeug.utils import secure_filename
 import os
 from PIL import Image
-from torchvision import transforms
 import torch.nn.functional as F
 import torch
 from helper import *
 from utils import load_models, video_embeddings, find_most_similar
 # from sklearn.metrics.pairwise import cosine_similarity
-from globals import x_length,y_length,processing_status,n_mean,n_std
+from globals import processing_status, data_transform
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 UPLOAD_FOLDER = "static/uploads/"
@@ -170,15 +169,7 @@ def handle_upload(subfolder):
             with Image.open(file_path) as img:
                 img = img.convert("RGB")  # Convert image to RGB
 
-                # Define transformations
-                test_transform = transforms.Compose(
-                    [
-                        transforms.Resize((y_length, x_length), antialias=True),
-                        transforms.ToTensor(),  # Convert image to tensor
-                        transforms.Normalize(n_mean, n_std),
-                    ]
-                )
-                img_tensor = test_transform(img).unsqueeze(0).to(device)
+                img_tensor = data_transform(img).unsqueeze(0).to(device)
                 if len(img_tensor.shape) == 3:  # If the tensor is C x H x W
                     img_tensor = img_tensor.unsqueeze(0)
                 
