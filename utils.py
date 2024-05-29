@@ -168,7 +168,9 @@ def find_most_similar(query, gallery, top_k=5):
     Returns:
     - list of int: Indices of the top_k most similar tensors in the gallery.
     """
+
     # Convert the list of tensors to a single tensor
+    gallery = [item.unsqueeze(0) if item.dim() == 1 else item for item in gallery]
     gallery_tensor = torch.stack(gallery)
 
     # Normalize the query and gallery tensors to unit form
