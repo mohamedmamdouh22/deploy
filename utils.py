@@ -141,10 +141,10 @@ def video_embeddings(video_path, model, yolo, top_left, bottom_right, skip_frame
     cars = detect_objects(yolo, frames, top_left, bottom_right, min_width, min_height)
 
     # extract cars embeddings
-    embeddings = cars_embeddings(model, cars, batch_size)
+    embeddings,db = cars_embeddings(model, cars, batch_size)
     processing_status['status'] = 'done'
 
-    return embeddings
+    return embeddings,db
 # if __name__=='__main__':
 #     top_left = (75, 200)  # Replace with your top-left coordinates
 #     bottom_right = (1205, 600)  # Replace with your bottom-right coordinates
