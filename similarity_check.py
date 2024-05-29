@@ -1,6 +1,7 @@
 import torch.nn.functional as F
 import torch
 def find_most_similar(query, gallery, top_k=5):
+    gallery = [item.unsqueeze(0) if item.dim() == 1 else item for item in gallery]
     gallery_tensor = torch.stack(gallery)
     query_normalized = F.normalize(query, p=2, dim=1)
     gallery_normalized = F.normalize(gallery_tensor, p=2, dim=1).squeeze(1)

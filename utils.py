@@ -8,7 +8,7 @@ import numpy as np
 from PIL import Image
 import os
 import time
-
+from globals import processing_status
 def load_models():
     # set the device to CUDA
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -45,15 +45,15 @@ def extract_frames(video_path, skip_frames=2):
     return frames
 
 
-def detect_objects(model, frames, top_left, bottom_right, min_width=50, min_height=80):
+def detect_objects(model, frames, top_left, bottom_right, min_width=50, min_height=80,save_path='static/uploads/gallery'):
     results = []
     # define region of interest
     x1_roi, y1_roi = top_left
     x2_roi, y2_roi = bottom_right
-
+    os.makedirs(save_path, exist_ok=True)
     # car_counter = 0
 
-    for frame in frames:
+    for idx,frame in enumerate(frames):
         # define the mask
         mask = np.zeros_like(frame)
         mask[y1_roi:y2_roi, x1_roi:x2_roi] = frame[y1_roi:y2_roi, x1_roi:x2_roi]
@@ -76,14 +76,16 @@ def detect_objects(model, frames, top_left, bottom_right, min_width=50, min_heig
                     # car_counter +=1
                     # cv2.imwrite(car_filename, car)
                     # results.append({"frame": i, "path": car_filename, "timestamp": timestamp})
-        
+                    car_pil = Image.fromarray(cv2.cvtColor(car, cv2.COLOR_BGR2RGB))
+                    car_path = os.path.join(save_path, f'car_{idx}.jpg')
+                    car_pil.save(car_path)
                     # add the car frame
                     results.append(car)
     return results
 
 def preprocess_images(batch, data_transform):
     img_tensors = []
-    for img in batch:
+    for idx,img in enumerate(batch):
         # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # Ensure the image is in RGB format
         img_pil = Image.fromarray(img)  # Convert NumPy array to PIL Image
         img_tensor = data_transform(img_pil)
@@ -95,7 +97,10 @@ def cars_embeddings(model, images, batch_size=32):
     feature_vector_imgs = []
     db = {}
     num_images = len(images)
-
+    for i in range(num_images):
+        car_pil = Image.fromarray(cv2.cvtColor(images[i], cv2.COLOR_BGR2RGB))
+        car_path = os.path.join('static/uploads/gallery', f'car_{i}.jpg')
+        car_pil.save(car_path)
     # Transform to be applied to each image
     resize_dims = (256, 256)
     n_mean_std = [0.5, 0.5, 0.5]
@@ -127,12 +132,11 @@ def cars_embeddings(model, images, batch_size=32):
             end_vec = [F.normalize(item[iter], dim=0) for item in ffs_batch]
             concatenated_vec = torch.cat(end_vec, 0)
             feature_vector_imgs.append(concatenated_vec)
-            db.update({f"image_{i+iter}": concatenated_vec})
+            db.update({f"static/uploads/gallery/car_{i+iter}.jpg": concatenated_vec})
     
     return feature_vector_imgs, db
             
 def video_embeddings(video_path, model, yolo, top_left, bottom_right, skip_frames=2, min_width=50, min_height=80, batch_size=32):
-     
     # extract frames
     frames = extract_frames(video_path, skip_frames)
 
@@ -141,5 +145,14 @@ def video_embeddings(video_path, model, yolo, top_left, bottom_right, skip_frame
 
     # extract cars embeddings
     embeddings = cars_embeddings(model, cars, batch_size)
+    processing_status['status'] = 'done'
 
     return embeddings
+# if __name__=='__main__':
+#     top_left = (75, 200)  # Replace with your top-left coordinates
+#     bottom_right = (1205, 600)  # Replace with your bottom-right coordinates
+#     model,yolo=load_models()
+#     start_time = time.time()
+#     em= video_embeddings('sample_video.mp4',model,yolo,top_left,bottom_right)   
+#     end_time = time.time()
+#     print(end_time-start_time)

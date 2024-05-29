@@ -4,12 +4,14 @@ import os
 import numpy as np
 from ultralytics import YOLO
 import time
+import torch
 
-# Load the YOLOv8 model
+# Load the YOLOv10s model
 model = YOLO("yolov8s.pt")
 
 def process_video(video_path, top_left, bottom_right, skip_frames=2, min_width=50, min_height=80):
-
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
     results = []
     cap = cv2.VideoCapture(video_path)
     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -18,7 +20,6 @@ def process_video(video_path, top_left, bottom_right, skip_frames=2, min_width=5
     gallery_folder_path = os.path.join('static/uploads/gallery', video_name)
     os.makedirs(gallery_folder_path, exist_ok=True)
     
-    # car_counter = 0
     for i in range(frame_count):
         ret, frame = cap.read()
         if not ret:
@@ -41,7 +42,6 @@ def process_video(video_path, top_left, bottom_right, skip_frames=2, min_width=5
                 height = y2 - y1
                 # Check if the car is fully within the ROI
                 if width >= min_width and height >= min_height:
-                    # car_counter += 1
                     car = frame[int(y1):int(y2), int(x1):int(x2)]
                     timestamp = i / fps  # Calculate the timestamp
                     car_filename = os.path.join(gallery_folder_path, f'{timestamp:.2f}.jpg')
@@ -52,13 +52,13 @@ def process_video(video_path, top_left, bottom_right, skip_frames=2, min_width=5
     return results
 
 
-top_left = (75, 200)  # Replace with your top-left coordinates
-bottom_right = (1205, 600)  # Replace with your bottom-right coordinates
+# top_left = (75, 200)  # Replace with your top-left coordinates
+# bottom_right = (1205, 600)  # Replace with your bottom-right coordinates
 
-# Example usage
-start_time = time.time()
-process_video('sample_video.mp4', top_left, bottom_right, skip_frames=2, min_width=60,min_height=90)
-end_time = time.time()
+# # Example usage
+# start_time = time.time()
+# process_video('sample_video.mp4', top_left, bottom_right, skip_frames=2, min_width=60, min_height=90)
+# end_time = time.time()
 
-detection_time = end_time - start_time
-print(f"Detection process time is: {detection_time} s")
+# detection_time = end_time - start_time
+# print(f"Detection process time is: {detection_time} s")
