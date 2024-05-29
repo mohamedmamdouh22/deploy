@@ -8,12 +8,8 @@ from test import process_video
 import torch.nn.functional as F
 import time
 from concurrent.futures import ThreadPoolExecutor
-
-y_length = 256
-x_length = 256
-n_mean = [0.5, 0.5, 0.5]
-n_std = [0.5, 0.5, 0.5]
-processing_status = {'status': 'idle'}
+from globals import *
+from globals import x_length,y_length,processing_status,n_mean,n_std
 
 # this function checks the extension of the file passed
 def allowed_file(filename):
@@ -57,6 +53,7 @@ def load_model():
 # ===================================================================================
 def process_image(file_path, model, g_images: list, gallery: dict):
     print(file_path)
+    device = next(model.parameters()).device
     if allowed_file(file_path):
         with Image.open(file_path) as img:
             img = img.convert("RGB")
@@ -67,7 +64,7 @@ def process_image(file_path, model, g_images: list, gallery: dict):
                     transforms.Normalize(n_mean, n_std),
                 ]
             )
-            img_tensor = test_transform(img)
+            img_tensor = test_transform(img).unsqueeze(0).to(device)
             if len(img_tensor.shape) == 3:
                 img_tensor = img_tensor.unsqueeze(0)
             with torch.no_grad():
@@ -90,7 +87,6 @@ def handle_uploaded_car_images(image_paths, g_images, gallery):
             future.result()
 
 def process_video_and_handle_images(video_path, top_left, bottom_right):
-    global processing_status
 
     results = process_video(video_path, top_left, bottom_right)
     car_image_paths = [result['path'] for result in results]
