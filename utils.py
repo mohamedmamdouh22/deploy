@@ -19,7 +19,7 @@ def load_models():
     model.load_state_dict(model_state_dict)
 
     # Load the YOLOv8 model
-    yolo = YOLO("yolov8s.pt")
+    yolo = YOLO("yolov8n.pt")
 
     # Move the models to the device
     model.to(device)
