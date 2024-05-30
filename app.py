@@ -16,6 +16,7 @@ import torch
 from helper import *
 from utils import load_models, video_embeddings, find_most_similar
 from globals import processing_status, data_transform, top_left, bottom_right
+from image import gallery_embeddings
 # from sklearn.metrics.pairwise import cosine_similarity
 
 app = Flask(__name__)
@@ -68,6 +69,8 @@ def upload_video():
 
 @app.route('/upload_gallery_images', methods=['POST'])
 def upload_gallery_images():
+    
+    gallery_path =  os.path.join(app.config['UPLOAD_FOLDER'], 'gallery')
 
     if 'images' not in request.files:
         flash('No file part')
@@ -88,15 +91,15 @@ def upload_gallery_images():
             filenames.append(file_path)
         
         # Process images in a separate thread
-        threading.Thread(target=process_gallery_images, args=(filenames,)).start()
+        threading.Thread(target=process_gallery_images, args=(gallery_path,)).start()
 
         return redirect(url_for('processing'))
 
     flash('Invalid file type')
     return redirect(request.url)
     
-def process_gallery_images(image_paths):
-    handle_uploaded_car_images(model, image_paths, g_images, gallery)
+def process_gallery_images(gallery_path):
+    gallery_embeddings(gallery_path, model, g_images, gallery, batch_size=32)
     processing_status['status'] = 'done'
 
 @app.route("/upload_query_images", methods=["POST"])
