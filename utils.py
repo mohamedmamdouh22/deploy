@@ -51,42 +51,57 @@ def extract_frames(video_path, skip_frames=2):
     return frames
 
 
-def detect_objects(model, frames, top_left, bottom_right, min_width=50, min_height=80,save_path='static/uploads/gallery'):
+def detect_objects(model, frames, top_left, bottom_right, min_width=50, min_height=80,save_path='static/uploads/gallery', batch_size=8):
+
     results = []
+
+    # Check the device of the model
+    device = next(model.parameters()).device
+
     # define region of interest
     x1_roi, y1_roi = top_left
     x2_roi, y2_roi = bottom_right
     os.makedirs(save_path, exist_ok=True)
-    # car_counter = 0
+    car_counter = 0
 
-    for idx,frame in enumerate(frames):
-        # define the mask
-        mask = np.zeros_like(frame)
-        mask[y1_roi:y2_roi, x1_roi:x2_roi] = frame[y1_roi:y2_roi, x1_roi:x2_roi]
-        detections = model(mask)
+    for i in range(0, len(frames), batch_size):
+        batch_frames = frames[i:i + batch_size]
+        batch_masks = []
+        for frame in batch_frames:
+            # Define the mask
+            mask = np.zeros_like(frame)
+            mask[y1_roi:y2_roi, x1_roi:x2_roi] = frame[y1_roi:y2_roi, x1_roi:x2_roi]
+            batch_masks.append(mask)
 
-        # handle each car detection in the frame
-        for detection in detections[0].boxes.data:
-            x1, y1, x2, y2, confidence, cls = detection[:6]
+        # Convert batch masks to numpy arrays
+        # batch_masks_np = np.array(batch_masks)
 
-            # check if the detected object is car
-            if int(cls) == 2:
-                width = x2 - x1
-                height = y2 - y1
+        # Perform YOLO detection on the batch
+        detections = model(batch_masks)
+            
+        for batch_idx, detection_set in enumerate(detections):
+            frame_idx = i + batch_idx
+            frame = frames[frame_idx]
+            
+            # Handle each car detection in the frame
+            for detection in detection_set.boxes.data:
+                x1, y1, x2, y2, confidence, cls = detection[:6]
+                # check if the detected object is car
+                if int(cls) == 2:
+                    width = x2 - x1
+                    height = y2 - y1
 
-                # Check if detected car is full car not parts of the cars
-                if width >= min_width and height >= min_height:
-                    car = frame[int(y1):int(y2), int(x1):int(x2)]
-                    # timestamp = i / fps  # Calculate the timestamp
-                    # car_filename = os.path.join('test_gallery', f'{car_counter}.jpg')
-                    # car_counter +=1
-                    # cv2.imwrite(car_filename, car)
-                    # results.append({"frame": i, "path": car_filename, "timestamp": timestamp})
-                    car_pil = Image.fromarray(cv2.cvtColor(car, cv2.COLOR_BGR2RGB))
-                    car_path = os.path.join(save_path, f'car_{idx}.jpg')
-                    car_pil.save(car_path)
-                    # add the car frame
-                    results.append(car)
+                    # Check if detected car is full car not parts of the cars
+                    if width >= min_width and height >= min_height:
+                        car = frame[int(y1):int(y2), int(x1):int(x2)]
+                        # timestamp = i / fps  # Calculate the timestamp
+                        # results.append({"frame": i, "path": car_filename, "timestamp": timestamp})
+                        # car_pil = Image.fromarray(cv2.cvtColor(car, cv2.COLOR_BGR2RGB))
+                        # car_pil.save(car_path)
+                        car_path = os.path.join(save_path, f'car_{car_counter}.jpg')
+                        cv2.imwrite(car_path, car)
+                        car_counter += 1
+                        results.append(car)
     return results
 
 def preprocess_images(batch, transform=data_transform):
@@ -94,7 +109,7 @@ def preprocess_images(batch, transform=data_transform):
     for idx,img in enumerate(batch):
         # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # Ensure the image is in RGB format
         img_pil = Image.fromarray(img)  # Convert NumPy array to PIL Image
-        img_tensor = data_transform(img_pil)
+        img_tensor = transform(img_pil)
         img_tensors.append(img_tensor)
     tensors_batch = torch.stack(img_tensors)  # Create a batch
     return tensors_batch
@@ -136,7 +151,7 @@ def cars_embeddings(model, images, batch_size=32):
             
 def video_embeddings(video_path, model, yolo, top_left, bottom_right, skip_frames=2, min_width=50, min_height=80, batch_size=32):
     # extract frames
-    frames = extract_frames(video_path, skip_frames)
+    frames = extract_frames(video_path, skip_frames=2)
 
     # extract detections
     cars = detect_objects(yolo, frames, top_left, bottom_right, min_width, min_height)
