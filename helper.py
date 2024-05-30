@@ -1,14 +1,11 @@
 import os
 import shutil
 import torch
-from models.models import MBR_model
-from torchvision import transforms
 from PIL import Image
 import torch.nn.functional as F
-import time
 from concurrent.futures import ThreadPoolExecutor
 from globals import *
-from globals import resize_dims,n_mean_std
+from globals import data_transform
 
 # this function checks the extension of the file passed
 def allowed_file(filename):
@@ -42,14 +39,7 @@ def process_image(file_path, model, g_images: list, gallery: dict):
     if allowed_file(file_path):
         with Image.open(file_path) as img:
             img = img.convert("RGB")
-            test_transform = transforms.Compose(
-                [
-                    transforms.Resize(resize_dims, antialias=True),
-                    transforms.ToTensor(),
-                    transforms.Normalize(n_mean_std),
-                ]
-            )
-            img_tensor = test_transform(img).unsqueeze(0).to(device)
+            img_tensor = data_transform(img).unsqueeze(0).to(device)
             if len(img_tensor.shape) == 3:
                 img_tensor = img_tensor.unsqueeze(0)
             with torch.no_grad():
