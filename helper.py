@@ -8,7 +8,7 @@ import torch.nn.functional as F
 import time
 from concurrent.futures import ThreadPoolExecutor
 from globals import *
-from globals import x_length,y_length,processing_status,n_mean,n_std
+from globals import resize_dims,n_mean_std
 
 # this function checks the extension of the file passed
 def allowed_file(filename):
@@ -44,9 +44,9 @@ def process_image(file_path, model, g_images: list, gallery: dict):
             img = img.convert("RGB")
             test_transform = transforms.Compose(
                 [
-                    transforms.Resize((y_length, x_length), antialias=True),
+                    transforms.Resize(resize_dims, antialias=True),
                     transforms.ToTensor(),
-                    transforms.Normalize(n_mean, n_std),
+                    transforms.Normalize(n_mean_std),
                 ]
             )
             img_tensor = test_transform(img).unsqueeze(0).to(device)
