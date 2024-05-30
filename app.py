@@ -212,6 +212,11 @@ def predict():
         indices, scores = find_most_similar(q_images[0], g_images[0], top_k=1)
     else:
         indices, scores = find_most_similar(q_images[0], g_images, top_k=1)
+    if indices is None:
+        clear_query_directory(UPLOAD_FOLDER)
+        q_images = []
+        # Redirect to the "No Match" page if no matches are found
+        return redirect(url_for('no_match'))
     image_list = list(gallery.items())
     path_of_most_similar_image = image_list[indices[0][0]][0]
     similarity_score = scores[0] * 100  # Convert to percentage
@@ -220,7 +225,9 @@ def predict():
     clear_query_directory(UPLOAD_FOLDER)
     q_images = []
     return render_template("predict.html", image_url=path_of_most_similar_image, similarity_score=similarity_score)
-
+@app.route("/no_match")
+def no_match():
+    return render_template("no_match.html")
 
 if __name__ == "__main__":
     app.run(debug=True)

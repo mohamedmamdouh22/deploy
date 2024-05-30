@@ -186,6 +186,9 @@ def find_most_similar(query, gallery, top_k=5):
     top_scores, top_indices = torch.topk(similarities, top_k, largest=True, sorted=True)
     # Ensure scores are between 0 and 1
     top_scores = [(score.item() + 1) / 2 for score in top_scores]
+    print(top_scores[0])
+    if top_scores[0] < 15:
+        return None,None
     return top_indices, top_scores
 
 
