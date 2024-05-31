@@ -29,16 +29,11 @@ def load_models():
     model.eval()
     return model, yolo
 
-def time_stamp():
-    # fps = cap.get(cv2.CAP_PROP_FPS)  # Get frames per second
-    # video_name = os.path.splitext(os.path.basename(video_path))[0]
-    # gallery_folder_path = os.path.join('static/uploads/gallery', video_name)
-    # os.makedirs(gallery_folder_path, exist_ok=True)
-    pass
-
 def extract_frames(video_path, skip_frames=2):
     cap = cv2.VideoCapture(video_path)
+    fps = cap.get(cv2.CAP_PROP_FPS)  # Get frames per second
     frames = []
+    timestamps = []
     frame_count = 0
     while True:
         ret, frame = cap.read()
@@ -46,17 +41,20 @@ def extract_frames(video_path, skip_frames=2):
             break
         if frame_count % skip_frames == 0:
             frames.append(frame)
+            timestamp = int(frame_count / fps)  # Calculate the timestamp
+            timestamps.append(timestamp)
         frame_count += 1
     cap.release()
-    return frames
+    return frames, timestamps
 
 
-def detect_objects(model, frames, top_left, bottom_right, min_width=50, min_height=80,save_path='static/uploads/gallery', batch_size=8):
+def detect_objects(model, frames, timestamps, top_left, bottom_right, min_width=50, min_height=80,save_path='static/uploads/gallery', batch_size=16):
 
-    results = []
+    objects = []
+    car_paths = []
 
     # Check the device of the model
-    device = next(model.parameters()).device
+    # device = next(model.parameters()).device
 
     # define region of interest
     x1_roi, y1_roi = top_left
@@ -82,6 +80,7 @@ def detect_objects(model, frames, top_left, bottom_right, min_width=50, min_heig
         for batch_idx, detection_set in enumerate(detections):
             frame_idx = i + batch_idx
             frame = frames[frame_idx]
+            time_stamp = timestamps[frame_idx]
             
             # Handle each car detection in the frame
             for detection in detection_set.boxes.data:
@@ -93,16 +92,13 @@ def detect_objects(model, frames, top_left, bottom_right, min_width=50, min_heig
 
                     # Check if detected car is full car not parts of the cars
                     if width >= min_width and height >= min_height:
-                        car = frame[int(y1):int(y2), int(x1):int(x2)]
-                        # timestamp = i / fps  # Calculate the timestamp
-                        # results.append({"frame": i, "path": car_filename, "timestamp": timestamp})
-                        # car_pil = Image.fromarray(cv2.cvtColor(car, cv2.COLOR_BGR2RGB))
-                        # car_pil.save(car_path)
-                        car_path = os.path.join(save_path, f'car_{car_counter}.jpg')
+                        car = frame[int(y1):int(y2), int(x1):int(x2)]                    
+                        car_path = os.path.join(save_path, f'car_{car_counter}_{time_stamp}.jpg')
                         cv2.imwrite(car_path, car)
                         car_counter += 1
-                        results.append(car)
-    return results
+                        car_paths.append(car_path)
+                        objects.append(car)
+    return objects, car_paths
 
 def preprocess_images(batch, transform=data_transform):
     img_tensors = []
@@ -114,14 +110,15 @@ def preprocess_images(batch, transform=data_transform):
     tensors_batch = torch.stack(img_tensors)  # Create a batch
     return tensors_batch
 
-def cars_embeddings(model, images, batch_size=32):
+def cars_embeddings(model, images, images_paths, batch_size=32):
     feature_vector_imgs = []
     db = {}
     num_images = len(images)
-    for i in range(num_images):
-        car_pil = Image.fromarray(cv2.cvtColor(images[i], cv2.COLOR_BGR2RGB))
-        car_path = os.path.join('static/uploads/gallery', f'car_{i}.jpg')
-        car_pil.save(car_path)
+    
+    # for i in range(num_images):
+    #     car_pil = Image.fromarray(cv2.cvtColor(images[i], cv2.COLOR_BGR2RGB))
+    #     car_path = os.path.join('static/uploads/gallery', f'car_{i}.jpg')
+    #     car_pil.save(car_path)
 
     # Check the device of the model
     device = next(model.parameters()).device
@@ -145,19 +142,19 @@ def cars_embeddings(model, images, batch_size=32):
             end_vec = [F.normalize(item[iter], dim=0) for item in ffs_batch]
             concatenated_vec = torch.cat(end_vec, 0)
             feature_vector_imgs.append(concatenated_vec)
-            db.update({f"static/uploads/gallery/car_{i+iter}.jpg": concatenated_vec})
+            db.update({images_paths[i+iter]: concatenated_vec})
     
     return feature_vector_imgs, db
             
-def video_embeddings(video_path, model, yolo, top_left, bottom_right, skip_frames=2, min_width=50, min_height=80, batch_size=32):
+def video_embeddings(video_path, model, yolo, top_left, bottom_right, skip_frames=3, min_width=50, min_height=80, yolo_batch_size=16, model_batch_size=32):
     # extract frames
-    frames = extract_frames(video_path, skip_frames=2)
+    frames, timestamps = extract_frames(video_path, skip_frames)
 
     # extract detections
-    cars = detect_objects(yolo, frames, top_left, bottom_right, min_width, min_height)
+    cars, cars_paths = detect_objects(yolo, frames, timestamps, top_left, bottom_right, min_width, min_height, batch_size=yolo_batch_size)
 
     # extract cars embeddings
-    embeddings = cars_embeddings(model, cars, batch_size)
+    embeddings = cars_embeddings(model, cars, cars_paths, batch_size=model_batch_size)
     processing_status['status'] = 'done'
 
     return embeddings
