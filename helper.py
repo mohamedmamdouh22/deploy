@@ -5,7 +5,7 @@ from PIL import Image
 import torch.nn.functional as F
 from concurrent.futures import ThreadPoolExecutor
 from globals import *
-from globals import  data_transform
+from globals import data_transform
 
 # this function checks the extension of the file passed
 def allowed_file(filename):

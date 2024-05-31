@@ -19,7 +19,7 @@ def load_models():
     model.load_state_dict(model_state_dict)
 
     # Load the YOLOv8 model
-    yolo = YOLO("yolov8s.pt")
+    yolo = YOLO("yolov8n.pt")
 
     # Move the models to the device
     model.to(device)
@@ -147,11 +147,13 @@ def cars_embeddings(model, images, images_paths, batch_size=32):
     return feature_vector_imgs, db
             
 def video_embeddings(video_path, model, yolo, top_left, bottom_right, skip_frames=3, min_width=50, min_height=80, yolo_batch_size=16, model_batch_size=32):
+
     # extract frames
     frames, timestamps = extract_frames(video_path, skip_frames)
 
     # extract detections
     cars, cars_paths = detect_objects(yolo, frames, timestamps, top_left, bottom_right, min_width, min_height, batch_size=yolo_batch_size)
+
 
     # extract cars embeddings
     embeddings = cars_embeddings(model, cars, cars_paths, batch_size=model_batch_size)
@@ -183,6 +185,9 @@ def find_most_similar(query, gallery, top_k=5):
     top_scores, top_indices = torch.topk(similarities, top_k, largest=True, sorted=True)
     # Ensure scores are between 0 and 1
     top_scores = [(score.item() + 1) / 2 for score in top_scores]
+    print(top_scores[0])
+    if top_scores[0] < 5:
+        return None,None
     return top_indices, top_scores
 
 
