@@ -15,5 +15,6 @@ test.py
 /test_gallery/
 video.mp4
 draft.ipynb
-yolov5nu.pt
+yolov10n.pt
 yolov8n.pt
+yolov5nu.pt
