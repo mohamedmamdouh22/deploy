@@ -7,6 +7,7 @@ from flask import (
     flash,
     send_from_directory,
 )
+import time
 import threading
 from werkzeug.utils import secure_filename
 import os
@@ -131,7 +132,10 @@ def upload_video_file():
     return redirect(request.url)
 
 def process_video_and_handle_images(video_path, top_left, bottom_right):
+    start_time=time.time()
     embeddings = video_embeddings(video_path, model, yolo, top_left, bottom_right, skip_frames=3)
+    end_time=time.time()
+    print('video processing time:', end_time-start_time)
     g_images.extend(embeddings[0])
     gallery.update(embeddings[1])
     processing_status['status'] = 'done'
