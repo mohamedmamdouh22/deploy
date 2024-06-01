@@ -109,16 +109,21 @@ def upload_query_images():
 
 @app.route('/upload_video_file', methods=['POST'])
 def upload_video_file():
-
     if 'video' not in request.files:
         flash('No video file part')
         return redirect(request.url)
-    
+
     file = request.files['video']
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
         video_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(video_path)
+        try:
+            top_left = (int(float(request.args.get('top_left_x'))), int(float(request.args.get('top_left_y'))))
+            bottom_right = (int(float(request.args.get('bottom_right_x'))), int(float(request.args.get('bottom_right_y'))))
+        except (TypeError, ValueError) as e:
+            flash('Invalid coordinates for the rectangle.')
+            return redirect(request.url)
 
         # Set processing status to 'processing'
         processing_status['status'] = 'processing'
