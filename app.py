@@ -20,6 +20,7 @@ from helper import *
 from globals import processing_status, data_transform
 from image import gallery_embeddings
 import concurrent.futures
+from memory import vehicles_detection
 # from sklearn.metrics.pairwise import cosine_similarity
 
 app = Flask(__name__)
@@ -169,16 +170,19 @@ def upload_video_file():
 #     gallery.update(embeddings[1])
 #     processing_status["status"] = "done"
 def process_video_and_handle_images(video_path, top_left, bottom_right):
+    save_path = os.path.join(app.config["UPLOAD_FOLDER"], "gallery")
+    os.makedirs(save_path, exist_ok=True)
     start_time = time.time()
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        future = executor.submit(video_embeddings, video_path, model, yolo, top_left, bottom_right, skip_frames=3)
-        embeddings = future.result()  # Get the result of the threaded execution
-        g_images.extend(embeddings[0])
-        gallery.update(embeddings[1])
+        future = executor.submit(
+            vehicles_detection, yolo, video_path, save_path, top_left, bottom_right
+        )
+    gallery_embeddings(save_path, model, g_images, gallery)
     end_time = time.time()
-    print('video processing time:', end_time - start_time)
+    print("video processing time:", end_time - start_time)
     # g_images.extend(embeddings)
-    processing_status['status'] = 'done'
+    processing_status["status"] = "done"
+
 
 @app.route("/processing")
 def processing():
