@@ -146,7 +146,7 @@ def cars_embeddings(model, images, images_paths, batch_size=32):
     
     return feature_vector_imgs, db
             
-def video_embeddings(video_path, model, yolo, top_left, bottom_right, skip_frames=3, min_width=50, min_height=80, yolo_batch_size=16, model_batch_size=32):
+def video_embeddings(video_path, model, yolo, top_left, bottom_right, skip_frames=3, min_width=50, min_height=80, yolo_batch_size=32, model_batch_size=32):
 
     # extract frames
     frames, timestamps = extract_frames(video_path, skip_frames)
@@ -189,5 +189,3 @@ def find_most_similar(query, gallery, top_k=5):
     if top_scores[0] < 5:
         return None,None
     return top_indices, top_scores
-
-
