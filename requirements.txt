@@ -2,7 +2,7 @@ Flask==3.0.3
 numpy==1.26.4
 opencv_python==4.9.0.80
 Pillow==10.3.0
-torch==2.3.0+cu121
-torchvision==0.18.0+cu121
+torch==2.3.0
+torchvision==0.18.0
 ultralytics==8.2.26
 Werkzeug==3.0.3
