@@ -14,7 +14,7 @@ import os
 from PIL import Image
 import torch.nn.functional as F
 import torch
-from utils import load_models, video_embeddings, find_most_similar
+from utils import load_models, find_most_similar
 import threading
 from helper import *
 from globals import processing_status, data_transform
