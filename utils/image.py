@@ -1,7 +1,7 @@
 import os
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader
-from globals import data_transform
+from utils.preprocess import data_transform
 import torch.nn.functional as F
 import torch
 

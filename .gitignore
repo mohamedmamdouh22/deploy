@@ -4,17 +4,8 @@
 /frames/
 /static/uploads/
 sample_video.mp4
-yolov5su.pt
-yolov8s.pt
 /.vscode
 /__pycache__/
-/app/
-tracker.py
-tracking.py
-test.py
 /test_gallery/
 video.mp4
-draft.ipynb
-yolov10n.pt
 yolov8n.pt
-yolov5nu.pt

@@ -17,10 +17,10 @@ import torch
 from utils import load_models, find_most_similar
 import threading
 from helper import *
-from globals import processing_status, data_transform
-from image import gallery_embeddings
+from utils.image import gallery_embeddings
+from utils.video import vehicles_detection
+from utils.preprocess import data_transform
 import concurrent.futures
-from memory import vehicles_detection
 # from sklearn.metrics.pairwise import cosine_similarity
 
 app = Flask(__name__)
@@ -28,6 +28,8 @@ app.secret_key = os.urandom(24)
 UPLOAD_FOLDER = "static/uploads/"
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # Limit file size to 16MB
+
+processing_status = {'status': 'idle'}
 
 q_images = []
 g_images = []
@@ -169,6 +171,7 @@ def upload_video_file():
 #     g_images.extend(embeddings[0])
 #     gallery.update(embeddings[1])
 #     processing_status["status"] = "done"
+
 def process_video_and_handle_images(video_path, top_left, bottom_right):
     save_path = os.path.join(app.config["UPLOAD_FOLDER"], "gallery")
     os.makedirs(save_path, exist_ok=True)
