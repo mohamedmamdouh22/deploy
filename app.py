@@ -14,9 +14,9 @@ import os
 from PIL import Image
 import torch.nn.functional as F
 import torch
-from utils import load_models, find_most_similar
+from pred import load_models, find_most_similar
 import threading
-from helper import *
+from file_handler import *
 from utils.image import gallery_embeddings
 from utils.video import vehicles_detection
 from utils.preprocess import data_transform
