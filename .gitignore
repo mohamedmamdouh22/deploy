@@ -6,6 +6,7 @@
 sample_video.mp4
 /.vscode
 /__pycache__/
+/utils/__pycache__/
 /test_gallery/
 video.mp4
 yolov8n.pt
