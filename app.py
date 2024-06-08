@@ -21,7 +21,15 @@ from utils.image import gallery_embeddings
 from utils.video import vehicles_detection
 from utils.preprocess import data_transform
 import concurrent.futures
-# from sklearn.metrics.pairwise import cosine_similarity
+from pinecone import Pinecone
+
+# Initialize Pinecone
+api_key = 'API_KEY'
+pc = Pinecone(api_key=api_key)
+
+# Connect to the index
+index_name = 'vehicle-reid'
+index = pc.Index(index_name)
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
