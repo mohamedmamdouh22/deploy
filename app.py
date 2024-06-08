@@ -24,7 +24,7 @@ import concurrent.futures
 from pinecone import Pinecone
 
 # Initialize Pinecone
-api_key = '58497556-38d0-4798-aa84-2da86e655287'
+api_key = 'API_KEY'
 pc = Pinecone(api_key=api_key)
 
 # Connect to your index
