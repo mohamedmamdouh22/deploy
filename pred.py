@@ -1,15 +1,16 @@
 import torch
 import torch.nn.functional as F
 from ultralytics import YOLO
-from models.models import MBR_model
+# from models.models import MBR_model
+from models.Efficient3b import EFFicient3b_model
 
 def load_models():
     # set the device to CUDA
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # load the Reid model
-    model_path = "models/best_mAP.pt"
-    model = MBR_model(13164, ["R50", "R50", "BoT", "BoT"], n_groups=0, losses="LBS", LAI=False)
+    model_path = "models/best_mAP.pth"
+    model = EFFicient3b_model(13164, ["EfficientNet", "EfficientNet", "BoT", "BoT"], n_groups=0, losses="LBS", LAI=False)
     model_state_dict = torch.load(model_path, map_location=device)
     model.load_state_dict(model_state_dict)
 
