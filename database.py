@@ -6,7 +6,7 @@ def db_upsert(index, gallery_emb:dict):
 
     len_vec = len(vectors_to_upsert)
 
-    # Upsert the vectors
+    # Upsert the vectors (we use this approach due to the limitations of free subscription on pinecone)
     for i in range(0, len_vec, 50):
         index.upsert(vectors=vectors_to_upsert[i:i+50])
 

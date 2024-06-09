@@ -5,7 +5,6 @@ from flask import (
     redirect,
     url_for,
     flash,
-    send_from_directory,
 )
 import time
 import threading
@@ -14,13 +13,14 @@ import os
 from PIL import Image
 import torch.nn.functional as F
 import torch
-from pred import load_models, find_most_similar
+from pred import load_models
 import threading
 from file_handler import *
 from utils.image import gallery_embeddings
 from utils.video import vehicles_detection
 from utils.preprocess import data_transform
 import concurrent.futures
+from database import *
 from pinecone import Pinecone
 
 # Initialize Pinecone
@@ -29,7 +29,7 @@ pc = Pinecone(api_key=api_key)
 
 # Connect to the index
 index_name = 'vehicle-reid'
-index = pc.Index(index_name)
+pc_index = pc.Index(index_name)
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -39,6 +39,7 @@ app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # Limit file size to 16MB
 
 processing_status = {'status': 'idle'}
 
+top_k = 1
 q_images = []
 g_images = []
 gallery = {}
@@ -122,6 +123,12 @@ def upload_gallery_images():
 
 def process_gallery_images(gallery_path):
     gallery_embeddings(gallery_path, model, g_images, gallery, batch_size=32)
+    
+    # upload the vectors and clear the variables
+    db_upsert(pc_index, gallery)
+    g_images.clear()
+    gallery.clear()
+    
     processing_status["status"] = "done"
 
 
@@ -168,18 +175,6 @@ def upload_video_file():
     flash("Invalid file type")
     return redirect(request.url)
 
-
-# def process_video_and_handle_images(video_path, top_left, bottom_right):
-#     start_time = time.time()
-#     embeddings = video_embeddings(
-#         video_path, model, yolo, top_left, bottom_right, skip_frames=3
-#     )
-#     end_time = time.time()
-#     print("video processing time:", end_time - start_time)
-#     g_images.extend(embeddings[0])
-#     gallery.update(embeddings[1])
-#     processing_status["status"] = "done"
-
 def process_video_and_handle_images(video_path, top_left, bottom_right):
     save_path = os.path.join(app.config["UPLOAD_FOLDER"], "gallery")
     os.makedirs(save_path, exist_ok=True)
@@ -189,6 +184,12 @@ def process_video_and_handle_images(video_path, top_left, bottom_right):
             vehicles_detection, yolo, video_path, save_path, top_left, bottom_right
         )
     gallery_embeddings(save_path, model, g_images, gallery)
+    
+    # upload the vectors and clear the variables
+    db_upsert(pc_index, gallery)
+    g_images.clear()
+    gallery.clear()
+
     end_time = time.time()
     print("video processing time:", end_time - start_time)
     # g_images.extend(embeddings)
@@ -267,25 +268,13 @@ def predict():
         flash("No query images uploaded.")
         return redirect(url_for("upload_query"))
 
-    if not g_images:
-        flash("No gallery images uploaded.")
-        return redirect(url_for("upload_gallery"))
-    if len(g_images) == 2:
-        indices, scores = find_most_similar(q_images[0], g_images[0], top_k=1)
-    else:
-        indices, scores = find_most_similar(q_images[0], g_images, top_k=1)
-    if indices is None:
-        clear_query_directory(UPLOAD_FOLDER)
-        q_images = []
-        # Redirect to the "No Match" page if no matches are found
-        return redirect(url_for("no_match"))
-    image_list = list(gallery.items())
-    path_of_most_similar_image = image_list[indices[0][0]][0]
-    similarity_score = scores[0] * 100  # Convert to percentage
-    path_of_most_similar_image = path_of_most_similar_image.replace("\\", "/")
+    id_scores = db_query(pc_index, q_images[0], top_k=top_k)
+    path_of_most_similar_image = id_scores[0][0].replace("\\", "/")
+    similarity_score = round(id_scores[0][1] * 100, 2)
+    
     # Clear the query directory and reset q_images
     clear_query_directory(UPLOAD_FOLDER)
-    q_images = []
+    q_images.clear()
     return render_template(
         "predict.html",
         image_url=path_of_most_similar_image,
